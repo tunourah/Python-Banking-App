@@ -59,6 +59,76 @@ class Bank:
             print("❌ No accounts found.")
         return None
 
+class Transaction:
+  
+    
+    @staticmethod
+    def update_balance(account_id, new_checking, new_savings, filename='bank.csv'):
+       
+        try:
+            with open(filename, 'r') as file:
+                lines = file.readlines()
+
+            for i, line in enumerate(lines):
+                if line.startswith(account_id):
+                    data = line.strip().split(";")
+                    data[4] = str(new_checking)
+                    data[5] = str(new_savings)
+                    lines[i] = ";".join(data) + "\n"
+                    break
+
+            with open(filename, 'w') as file:
+                file.writelines(lines)
+        except FileNotFoundError:
+            print("❌ No accounts found.")
+
+    @staticmethod
+    def withdraw_money(customer):
+       
+        print("\n💰 Withdrawal Options:")
+        print("1️⃣ Withdraw from Checking")
+        print("2️⃣ Withdraw from Savings")
+        option = input("Enter your choice: ")
+        
+        try:
+            amount = float(input("Enter amount to withdraw: "))
+            if option == "1" and amount <= customer.balance_checking:
+                customer.balance_checking -= amount
+                print("✅ Withdrawal successful!")
+            elif option == "2" and amount <= customer.balance_savings:
+                customer.balance_savings -= amount
+                print("✅ Withdrawal successful!")
+            else:
+                print("❌ Insufficient funds.")
+                return
+            Transaction.update_balance(customer.account_id, customer.balance_checking, customer.balance_savings)
+        except ValueError:
+            print("❌ Invalid amount entered.")
+
+    @staticmethod
+    def deposit_money(customer):
+     
+        print("\n💰 Deposit Options:")
+        print("1️⃣ Deposit into Checking")
+        print("2️⃣ Deposit into Savings")
+        option = input("Enter your choice: ")
+        
+        try:
+            amount = float(input("Enter amount to deposit: "))
+            if option == "1":
+                customer.balance_checking += amount
+                print("✅ Deposit successful!")
+            elif option == "2":
+                customer.balance_savings += amount
+                print("✅ Deposit successful!")
+            else:
+                print("❌ Invalid option.")
+                return
+            Transaction.update_balance(customer.account_id, customer.balance_checking, customer.balance_savings)
+        except ValueError:
+            print("❌ Invalid amount entered.")
+
+class BankingSystem:
     
 
     @staticmethod
