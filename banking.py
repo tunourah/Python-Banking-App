@@ -1,217 +1,253 @@
 import csv
 
 class Customer:
-  
-    
-    def __init__(self, account_id, first_name, last_name, password, balance_checking=0.0, balance_savings=0.0):
+    def __init__(self, account_id, first_name, last_name, password, checking=0, savings=0):
         self.account_id = account_id
         self.first_name = first_name
         self.last_name = last_name
         self.password = password
-        self.balance_checking = float(balance_checking)
-        self.balance_savings = float(balance_savings)
+        self.checking = int(checking)
+        self.savings = int(savings)
 
-    def save_to_file(self, filename='bank.csv'):
-        """Saves customer information to a CSV file."""
-        with open(filename, 'a', newline='') as csv_file:
+    @staticmethod
+    def generate_account_id():
+        """Generate a new account ID by reading the last one from the CSV file."""
+        try:
+            with open("bank.csv", "r") as file:
+                reader = csv.reader(file, delimiter=";")
+                next(reader)   
+                rows = [row for row in reader if row]   
+
+            if rows:
+                last_account_id = int(rows[-1][0])  
+            else:
+                last_account_id = 10000   
+
+        except FileNotFoundError:
+            last_account_id = 10000  
+
+        return last_account_id + 1  
+
+    @staticmethod
+    def add_new_account():
+       
+        first_name = input("Enter your first name: ")
+        last_name = input("Enter your last name: ")
+        password = input("Enter your password: ")
+
+       
+        account_id = Customer.generate_account_id()
+        customer = Customer(account_id, first_name, last_name, password)
+
+      
+        with open("bank.csv", "a", newline="") as file:
             fieldnames = ["account_id", "first_name", "last_name", "password", "balance_checking", "balance_savings"]
-            csv_writer = csv.DictWriter(csv_file, fieldnames=fieldnames, delimiter=';')
+            writer = csv.DictWriter(file, fieldnames=fieldnames, delimiter=";")
 
-            if csv_file.tell() == 0:  
-                csv_writer.writeheader()
+            
+            if file.tell() == 0:
+                writer.writeheader()
 
-            csv_writer.writerow({
-                "account_id": self.account_id,
-                "first_name": self.first_name,
-                "last_name": self.last_name,
-                "password": self.password,
-                "balance_checking": self.balance_checking,
-                "balance_savings": self.balance_savings
+            writer.writerow({
+                "account_id": customer.account_id,
+                "first_name": customer.first_name,
+                "last_name": customer.last_name,
+                "password": customer.password,
+                "balance_checking": customer.checking,
+                "balance_savings": customer.savings
             })
 
-class Bank:
-    
-    
-    @staticmethod
-    def is_account_id_unique(account_id, filename='bank.csv'):
-       
-        try:
-            with open(filename, 'r', newline='') as csv_file:
-                csv_reader = csv.DictReader(csv_file, delimiter=';')
-                for row in csv_reader:
-                    if row["account_id"] == str(account_id):
-                        return False
-        except FileNotFoundError:
-            return True  
-        return True  
-
-    @staticmethod
-    def login_customer(account_id, password, filename='bank.csv'):
-       
-        try:
-            with open(filename, 'r', newline='') as csv_file:
-                csv_reader = csv.DictReader(csv_file, delimiter=';')
-                for row in csv_reader:
-                    if row["account_id"] == account_id and row["password"] == password:
-                        print(f"\n✅ Welcome back, {row['first_name']} {row['last_name']}!\n")
-                        return Customer(row["account_id"], row["first_name"], row["last_name"], row["password"], row["balance_checking"], row["balance_savings"])
-        except FileNotFoundError:
-            print("❌ No accounts found.")
-        return None
-
-class Transaction:
-  
-    
-    @staticmethod
-    def update_balance(account_id, new_checking, new_savings, filename='bank.csv'):
-       
-        try:
-            with open(filename, 'r') as file:
-                lines = file.readlines()
-
-            for i, line in enumerate(lines):
-                if line.startswith(account_id):
-                    data = line.strip().split(";")
-                    data[4] = str(new_checking)
-                    data[5] = str(new_savings)
-                    lines[i] = ";".join(data) + "\n"
-                    break
-
-            with open(filename, 'w') as file:
-                file.writelines(lines)
-        except FileNotFoundError:
-            print("❌ No accounts found.")
-
-    @staticmethod
-    def withdraw_money(customer):
-       
-        print("\n💰 Withdrawal Options:")
-        print("1️⃣ Withdraw from Checking")
-        print("2️⃣ Withdraw from Savings")
-        option = input("Enter your choice: ")
-        
-        try:
-            amount = float(input("Enter amount to withdraw: "))
-            if option == "1" and amount <= customer.balance_checking:
-                customer.balance_checking -= amount
-                print("✅ Withdrawal successful!")
-            elif option == "2" and amount <= customer.balance_savings:
-                customer.balance_savings -= amount
-                print("✅ Withdrawal successful!")
-            else:
-                print("❌ Insufficient funds.")
-                return
-            Transaction.update_balance(customer.account_id, customer.balance_checking, customer.balance_savings)
-        except ValueError:
-            print("❌ Invalid amount entered.")
-
-    @staticmethod
-    def deposit_money(customer):
-     
-        print("\n💰 Deposit Options:")
-        print("1️⃣ Deposit into Checking")
-        print("2️⃣ Deposit into Savings")
-        option = input("Enter your choice: ")
-        
-        try:
-            amount = float(input("Enter amount to deposit: "))
-            if option == "1":
-                customer.balance_checking += amount
-                print("✅ Deposit successful!")
-            elif option == "2":
-                customer.balance_savings += amount
-                print("✅ Deposit successful!")
-            else:
-                print("❌ Invalid option.")
-                return
-            Transaction.update_balance(customer.account_id, customer.balance_checking, customer.balance_savings)
-        except ValueError:
-            print("❌ Invalid amount entered.")
-
-class BankingSystem:
-    
-
-    @staticmethod
-    def create_customer():
-        
-        print("\n📄 Enter New Customer Details:")
-        
-        while True:
-            try:
-                account_id = input("Enter Account ID: ")
-                if Bank.is_account_id_unique(account_id):
-                    break
-                else:
-                    print("❌ Account ID already exists. Try another one.")
-            except ValueError:
-                print("❌ Please enter a valid numeric account ID.")
-
-        first_name = input("Enter First Name: ")
-        last_name = input("Enter Last Name: ")
-        password = input("Enter Password: ")
-        
-        while True:
-            try:
-                balance_checking = float(input("Enter Checking Account Balance: "))
-                balance_savings = float(input("Enter Savings Account Balance: "))
-                break
-            except ValueError:
-                print("❌ Please enter a valid number for balance.")
-
-        new_customer = Customer(account_id, first_name, last_name, password, balance_checking, balance_savings)
-        new_customer.save_to_file()
-        print(f"✅ Account created successfully for {first_name} {last_name}!\n")
-        BankingSystem.banking_menu(new_customer)
-
-    @staticmethod
-    def banking_menu(customer):
-        
-        while True:
-            print("\n🏦 Banking Options:")
-            print("1️⃣ Withdraw Money")
-            print("2️⃣ Deposit Money")
-            print("3️⃣ Logout")
-            choice = input("Enter your choice: ")
-
-            if choice == "1":
-                Transaction.withdraw_money(customer)
-            elif choice == "2":
-                Transaction.deposit_money(customer)
-            elif choice == "3":
-                print("👋 Thank you for using Nora Bank. Goodbye!")
-                break
-            else:
-                print("❌ Invalid option. Please select again.")
+        print(f"\n✅ Account created successfully! Your account ID is {customer.account_id}")
+        print("🔐 Please log in to access banking services.\n")
 
     @staticmethod
     def login():
-      
-        account_id = input("Enter your Account ID: ")
-        password = input("Enter your Password: ")
-        customer = Bank.login_customer(account_id, password)
+       
+        while True:
+            account_id = input("Enter your Account ID: ")
+            password = input("Enter your Password: ")
 
-        if customer:
-            BankingSystem.banking_menu(customer)
-        else:
-            print("❌ Login failed. Try again.")
+            try:
+                with open("bank.csv", "r") as file:
+                    reader = csv.DictReader(file, delimiter=";")
+                    for row in reader:
+                        if row["account_id"] == account_id and row["password"] == password:
+                            print(f"\n✅ Welcome back, {row['first_name']} {row['last_name']}!\n")
+                            return Customer(
+                                row["account_id"],
+                                row["first_name"],
+                                row["last_name"],
+                                row["password"],
+                                row["balance_checking"],
+                                row["balance_savings"]
+                            )  # Return Customer instance
+
+            except FileNotFoundError:
+                print("❌ Error: No accounts found.")
+                return None
+
+            error = input("❌ Invalid credentials. Press 1 to try again or any other key to exit: ")
+            if error != "1":
+                print("👋 Exiting login.")
+                return None
+
+
+class BankingSystem:
+    
+    
+    @staticmethod
+    def show_services(customer):
+        
+        while True:
+            print("\n" + "=" * 40)
+            print("      ✨  AVAILABLE BANKING SERVICES  ✨      ")
+            print("=" * 40)
+            print("\n ❖ Choose a Service: ")
+            print("1️⃣ Withdraw from Savings")
+            print("2️⃣ Withdraw from Checking")
+            print("3️⃣ Deposit into Savings")
+            print("4️⃣ Deposit into Checking")
+            print("5️⃣ Transfer from Savings to Checking")
+            print("6️⃣ Transfer from Checking to Savings")
+            print("7️⃣ Transfer to Another Customer")
+            print("8️⃣ Logout")
+
+            choice = input("\n🔹 Enter your choice: ")
+
+            if choice == "1":
+                print("💸 Withdraw from Savings (Coming Soon)")
+            elif choice == "2":
+                print("💸 Withdraw from Checking (Coming Soon)")
+            elif choice == "3":
+                print("💰 Deposit into Savings (Coming Soon)")
+            elif choice == "4":
+                print("💰 Deposit into Checking (Coming Soon)")
+            elif choice == "5":
+                print("🔄 Transfer from Savings to Checking (Coming Soon)")
+            elif choice == "6":
+                print("🔄 Transfer from Checking to Savings (Coming Soon)")
+            elif choice == "7":
+                print("🔄 Transfer to Another Customer (Coming Soon)")
+            elif choice == "8":
+                print("\n👋 Logging out. Returning to the main menu.")
+                break  
+            else:
+                print("❌ Invalid choice. Please enter a number from 1 to 8.")
 
     @staticmethod
     def main():
-       
-        print("\n💳 Welcome to Nora Bank!\n")
-        print("1️⃣ Create New Account")
-        print("2️⃣ Login to Existing Account")
         
         while True:
-            option = input("Enter your choice: ")
-            if option == "1":
-                BankingSystem.create_customer()
-                break
-            elif option == "2":
-                BankingSystem.login()
-                break
-            else:
-                print("❌ Invalid choice. Please enter 1 or 2.")
+            print("\n" + "=" * 40)
+            print("      ✨   WELCOME TO NORA BANK   ✨      ")
+            print("=" * 40)
+            print("\n ❖ Banking Services Available: ")
+            print("1️⃣ Create New Account")
+            print("2️⃣ Login to Existing Account")
+            print("3️⃣ Exit")
 
+            choice = input("\n🔹 Enter your choice: ")
+
+            if choice == "1":
+                Customer.add_new_account()
+            elif choice == "2":
+                customer = Customer.login()
+                if customer:
+                    BankingSystem.show_services(customer)  
+            elif choice == "3":
+                print("\n👋 Thank you for using Nora Bank. Goodbye!")
+                break  
+            else:
+                print("❌ Invalid choice. Please enter 1, 2, or 3.")
+
+
+ 
 if __name__ == "__main__":
     BankingSystem.main()
+
+# page for the manger and page for coustomer 
+
+# START
+
+# DISPLAY "Welcome to the Banking System"
+# DISPLAY "1. Login"
+# DISPLAY "2. Create New Account"
+
+# GET user_choice
+
+# IF user_choice == 2 THEN
+#     DISPLAY "Enter First Name:"
+#     GET first_name
+#     DISPLAY "Enter Last Name:"
+#     GET last_name
+#     DISPLAY "Create a Password:"
+#     GET password
+#     GENERATE random_account_id
+#     CREATE new customer with (first_name, last_name, password, account_id)
+#     INITIALIZE checking_account with balance = 0
+#     INITIALIZE savings_account with balance = 0
+#     STORE customer in database (CSV file)
+#     DISPLAY "Account created successfully! Your Account ID is: account_id"
+
+# ELSE IF user_choice == 1 THEN
+#     DISPLAY "Enter Account ID:"
+#     GET account_id
+#     DISPLAY "Enter Password:"
+#     GET password
+    
+#     IF account_id and password match in database THEN
+#         DISPLAY "Login Successful!"
+        
+#         WHILE user is logged in:
+#             DISPLAY "1. Deposit Money"
+#             DISPLAY "2. Withdraw Money"
+#             DISPLAY "3. Transfer Money"
+#             DISPLAY "4. View Transactions"
+#             DISPLAY "5. Logout"
+            
+#             GET action_choice
+            
+#             IF action_choice == 1 THEN
+#                 DISPLAY "Choose Account: 1. Checking  2. Savings"
+#                 GET account_type
+#                 DISPLAY "Enter Amount to Deposit:"
+#                 GET deposit_amount
+#                 ADD deposit_amount to chosen account balance
+#                 LOG transaction
+                
+#             ELSE IF action_choice == 2 THEN
+#                 DISPLAY "Choose Account: 1. Checking  2. Savings"
+#                 GET account_type
+#                 DISPLAY "Enter Amount to Withdraw:"
+#                 GET withdraw_amount
+#                 IF balance is sufficient THEN
+#                     SUBTRACT withdraw_amount from chosen account balance
+#                     LOG transaction
+#                 ELSE IF balance is insufficient THEN
+#                     APPLY overdraft protection rules
+#                     LOG overdraft fee
+                
+#             ELSE IF action_choice == 3 THEN
+#                 DISPLAY "Choose Account to Transfer FROM: 1. Checking  2. Savings"
+#                 GET from_account
+#                 DISPLAY "Choose Account to Transfer TO: 1. Checking  2. Savings OR Another Customer"
+#                 GET to_account
+#                 DISPLAY "Enter Amount to Transfer:"
+#                 GET transfer_amount
+#                 CHECK if sufficient balance
+#                 TRANSFER money
+#                 LOG transaction
+                
+#             ELSE IF action_choice == 4 THEN
+#                 DISPLAY transaction history
+                
+#             ELSE IF action_choice == 5 THEN
+#                 DISPLAY "Logging Out..."
+#                 BREAK LOOP
+                
+#         END WHILE
+        
+#     ELSE
+#         DISPLAY "Invalid Login Credentials"
+
+# END
