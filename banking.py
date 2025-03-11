@@ -11,7 +11,7 @@ class Customer:
 
     @staticmethod
     def generate_account_id():
-        """Generate a new account ID by reading the last one from the CSV file."""
+   
         try:
             with open("bank.csv", "r") as file:
                 reader = csv.reader(file, delimiter=";")
@@ -91,7 +91,55 @@ class Customer:
                 print("👋 Exiting login.")
                 return None
 
+class AccountService:
+    
+    @staticmethod
+    def withdraw_from_savings(customer):
+        try:
+            amount = float(input("Enter amount to withdraw from Savings: "))
+        except ValueError:
+            print("❌ Invalid amount.")
+            return
+        if amount > customer.savings:
+            print("❌ Insufficient funds in savings.")
+        else:
+            customer.savings -= amount
+            print(f"✅ Withdrawal successful! New savings balance: {customer.savings}")
+            AccountService.update_customer_balance(customer)
 
+    @staticmethod
+    def withdraw_from_checking(customer):
+        try:
+            amount = float(input("Enter amount to withdraw from Checking: "))
+        except ValueError:
+            print("❌ Invalid amount.")
+            return
+        if amount > customer.checking:
+            print("❌ Insufficient funds in checking.")
+        else:
+            customer.checking -= amount
+            print(f"✅ Withdrawal successful! New checking balance: {customer.checking}")
+            AccountService.update_customer_balance(customer)
+
+    @staticmethod
+    def update_customer_balance(customer, filename="bank.csv"):
+        
+        updated_rows = []
+        try:
+            with open(filename, "r") as file:
+                reader = csv.DictReader(file, delimiter=";")
+                fieldnames = reader.fieldnames
+                for row in reader:
+                    if row["account_id"] == str(customer.account_id):
+                        row["balance_checking"] = str(customer.checking)
+                        row["balance_savings"] = str(customer.savings)
+                    updated_rows.append(row)
+            with open(filename, "w", newline="") as file:
+                writer = csv.DictWriter(file, fieldnames=fieldnames, delimiter=";")
+                writer.writeheader()
+                writer.writerows(updated_rows)
+        except FileNotFoundError:
+            print("❌ Error: Bank file not found.")
 class BankingSystem:
     
     
@@ -115,9 +163,9 @@ class BankingSystem:
             choice = input("\n🔹 Enter your choice: ")
 
             if choice == "1":
-                print("💸 Withdraw from Savings (Coming Soon)")
+                AccountService.withdraw_from_savings(customer)
             elif choice == "2":
-                print("💸 Withdraw from Checking (Coming Soon)")
+                AccountService.withdraw_from_checking(customer)
             elif choice == "3":
                 print("💰 Deposit into Savings (Coming Soon)")
             elif choice == "4":
