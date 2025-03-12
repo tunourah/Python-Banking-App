@@ -6,18 +6,18 @@ class Customer:
         self.first_name = first_name
         self.last_name = last_name
         self.password = password
-        self.checking = int(float(checking))
-        self.savings = int(float(savings))
+        self.checking = float(checking)
+        self.savings = float(savings)
         self.overdraft_count = int(overdraft_count)
-        self.status = status   
+        self.status = status  # "active" or "deactivated"
 
     @staticmethod
     def generate_account_id():
         try:
             with open("bank.csv", "r") as file:
                 reader = csv.reader(file, delimiter=";")
-                next(reader)   
-                rows = [row for row in reader if row]   
+                next(reader)  # Skip header
+                rows = [row for row in reader if row]
             if rows:
                 last_account_id = int(rows[-1][0])
             else:
@@ -33,7 +33,6 @@ class Customer:
         password = input("Enter your password: ")
 
         account_id = Customer.generate_account_id()
-        
         customer = Customer(account_id, first_name, last_name, password, 0, 0, 0, "active")
 
         with open("bank.csv", "a", newline="") as file:
@@ -61,7 +60,6 @@ class Customer:
         while True:
             account_id = input("Enter your Account ID: ")
             password = input("Enter your Password: ")
-
             try:
                 with open("bank.csv", "r") as file:
                     reader = csv.DictReader(file, delimiter=";")
@@ -88,12 +86,11 @@ class Customer:
                 return None
 
 
-class AccountService:
-   
+class TransactionService:
+    """Handles withdrawals, deposits, and CSV updates."""
     
     @staticmethod
     def update_customer_balance(customer, filename="bank.csv"):
-        
         expected_fieldnames = [
             "account_id", "first_name", "last_name", "password",
             "balance_checking", "balance_savings", "overdraft_count", "status"
@@ -103,7 +100,7 @@ class AccountService:
             with open(filename, "r") as file:
                 reader = csv.DictReader(file, delimiter=";")
                 fieldnames = reader.fieldnames if reader.fieldnames is not None else expected_fieldnames
-                 
+                # Ensure expected keys are in the header
                 for key in expected_fieldnames:
                     if key not in fieldnames:
                         fieldnames.append(key)
@@ -131,7 +128,6 @@ class AccountService:
 
     @staticmethod
     def withdraw_from_account(customer, account_type):
-        
         if customer.status != "active":
             print("❌ Your account is deactivated due to multiple overdrafts. Please deposit funds to reactivate.")
             return
@@ -150,49 +146,36 @@ class AccountService:
             print("❌ Invalid amount.")
             return
 
-        fee = 35.0   
-
-        
-        if balance < 0:
-            if amount > 100:
-                print("❌ Cannot withdraw more than $100 when the account is negative.")
-                return
+        fee = 35.0
+        # If already negative or withdrawal makes balance negative:
+        if balance < 0 or (balance - amount < 0):
             new_balance = balance - amount - fee
             if new_balance < -100:
                 print("❌ Withdrawal would exceed the overdraft limit of -$100.")
                 return
+            # When account is already negative, limit the withdrawal to $100 maximum.
+            if balance < 0 and amount > 100:
+                print("❌ Cannot withdraw more than $100 when the account is negative.")
+                return
             customer.overdraft_count += 1
-            print(f"✅ Withdrawal successful! {account_type.capitalize()} balance: {balance} -> {new_balance} (including ${fee} overdraft fee)")
+            print(f"✅ Withdrawal successful! {account_type.capitalize()} balance: {balance} -> {new_balance} (including ${fee} fee)")
         else:
-          
-            if balance - amount < 0:
-                new_balance = balance - amount - fee
-                if new_balance < -100:
-                    print("❌ Withdrawal would exceed the overdraft limit of -$100.")
-                    return
-                customer.overdraft_count += 1
-                print(f"✅ Withdrawal successful! {account_type.capitalize()} balance: {balance} -> {new_balance} (including ${fee} overdraft fee)")
-            else:
-                
-                new_balance = balance - amount
-                print(f"✅ Withdrawal successful! {account_type.capitalize()} balance: {balance} -> {new_balance}")
+            new_balance = balance - amount
+            print(f"✅ Withdrawal successful! {account_type.capitalize()} balance: {balance} -> {new_balance}")
 
-         
         if account_type.lower() == "checking":
             customer.checking = new_balance
         else:
             customer.savings = new_balance
 
-        
         if customer.overdraft_count >= 2:
             customer.status = "deactivated"
             print("❌ Your account has been deactivated due to multiple overdrafts.")
 
-        AccountService.update_customer_balance(customer)
+        TransactionService.update_customer_balance(customer)
 
     @staticmethod
     def deposit_to_account(customer, account_type):
-        
         try:
             amount = float(input(f"Enter amount to deposit into {account_type.capitalize()}: "))
         except ValueError:
@@ -200,26 +183,154 @@ class AccountService:
             return
 
         if account_type.lower() == "checking":
-            old_balance = customer.checking
-            new_balance = old_balance + amount
-            customer.checking = new_balance
+            customer.checking += amount
+            new_balance = customer.checking
         elif account_type.lower() == "savings":
-            old_balance = customer.savings
-            new_balance = old_balance + amount
-            customer.savings = new_balance
+            customer.savings += amount
+            new_balance = customer.savings
         else:
             print("❌ Invalid account type.")
             return
 
         print(f"✅ Deposit successful! {account_type.capitalize()} balance is now {new_balance}.")
 
-       
         if new_balance >= 0 and customer.status == "deactivated":
-            print("💡 Account reactivated after deposit. Overdraft fees and count reset.")
+            print("💡 Account reactivated after deposit. Overdraft count reset.")
             customer.overdraft_count = 0
             customer.status = "active"
 
-        AccountService.update_customer_balance(customer)
+        TransactionService.update_customer_balance(customer)
+
+
+class TransferService:
+    """Handles transfers between accounts and to another customer."""
+    
+    @staticmethod
+    def transfer_from_savings_to_checking(customer):
+        try:
+            amount = float(input("Enter amount to transfer from Savings to Checking: "))
+        except ValueError:
+            print("❌ Invalid amount.")
+            return
+        fee = 35.0
+        current_balance = customer.savings
+
+        if current_balance >= amount:
+            # Simple transfer
+            customer.savings = current_balance - amount
+            customer.checking += amount
+            print(f"✅ Transfer successful! Savings: {current_balance} -> {customer.savings}, Checking increased by {amount}")
+        else:
+            # Overdraft occurs
+            new_balance = current_balance - amount - fee
+            if new_balance < -100:
+                print("❌ Transfer would exceed the overdraft limit of -$100.")
+                return
+            customer.savings = new_balance
+            customer.checking += amount
+            customer.overdraft_count += 1
+            print(f"✅ Transfer successful! Savings: {current_balance} -> {new_balance} (including ${fee} fee), Checking increased by {amount}")
+
+        if customer.overdraft_count >= 2:
+            customer.status = "deactivated"
+            print("❌ Your account has been deactivated due to multiple overdrafts.")
+
+        TransactionService.update_customer_balance(customer)
+
+    @staticmethod
+    def transfer_from_checking_to_savings(customer):
+        try:
+            amount = float(input("Enter amount to transfer from Checking to Savings: "))
+        except ValueError:
+            print("❌ Invalid amount.")
+            return
+        fee = 35.0
+        current_balance = customer.checking
+
+        if current_balance >= amount:
+            customer.checking = current_balance - amount
+            customer.savings += amount
+            print(f"✅ Transfer successful! Checking: {current_balance} -> {customer.checking}, Savings increased by {amount}")
+        else:
+            new_balance = current_balance - amount - fee
+            if new_balance < -100:
+                print("❌ Transfer would exceed the overdraft limit of -$100.")
+                return
+            customer.checking = new_balance
+            customer.savings += amount
+            customer.overdraft_count += 1
+            print(f"✅ Transfer successful! Checking: {current_balance} -> {new_balance} (including ${fee} fee), Savings increased by {amount}")
+
+        if customer.overdraft_count >= 2:
+            customer.status = "deactivated"
+            print("❌ Your account has been deactivated due to multiple overdrafts.")
+
+        TransactionService.update_customer_balance(customer)
+
+    @staticmethod
+    def transfer_to_another_customer(customer):
+        target_account_id = input("Enter the target customer's Account ID: ")
+        try:
+            amount = float(input("Enter amount to transfer: "))
+        except ValueError:
+            print("❌ Invalid amount.")
+            return
+        source_choice = input("Transfer from which account? (Enter 'checking' or 'savings'): ").strip().lower()
+        if source_choice not in ("checking", "savings"):
+            print("❌ Invalid account type.")
+            return
+
+        fee = 35.0
+        source_balance = customer.checking if source_choice == "checking" else customer.savings
+
+        if source_balance >= amount:
+            new_source_balance = source_balance - amount
+            print("✅ Transfer initiated without overdraft fee.")
+        else:
+            new_source_balance = source_balance - amount - fee
+            if new_source_balance < -100:
+                print("❌ Transfer would exceed the overdraft limit of -$100.")
+                return
+            customer.overdraft_count += 1
+            print(f"✅ Transfer initiated with overdraft fee. Fee of ${fee} applied.")
+
+        if source_choice == "checking":
+            customer.checking = new_source_balance
+        else:
+            customer.savings = new_source_balance
+
+        # Update target customer's checking balance in CSV.
+        target_found = False
+        updated_rows = []
+        filename = "bank.csv"
+        try:
+            with open(filename, "r") as file:
+                reader = csv.DictReader(file, delimiter=";")
+                fieldnames = reader.fieldnames
+                for row in reader:
+                    if row["account_id"] == target_account_id:
+                        target_checking = float(row["balance_checking"])
+                        new_target_balance = target_checking + amount
+                        row["balance_checking"] = str(new_target_balance)
+                        target_found = True
+                    updated_rows.append(row)
+            if not target_found:
+                print("❌ Target account not found.")
+                return
+            with open(filename, "w", newline="") as file:
+                writer = csv.DictWriter(file, fieldnames=fieldnames, delimiter=";")
+                writer.writeheader()
+                writer.writerows(updated_rows)
+            print(f"✅ Transfer of ${amount} to account {target_account_id} successful!")
+        except FileNotFoundError:
+            print("❌ Error: Bank file not found.")
+            return
+
+        if customer.overdraft_count >= 2:
+            customer.status = "deactivated"
+            print("❌ Your account has been deactivated due to multiple overdrafts.")
+
+        TransactionService.update_customer_balance(customer)
 
 
 class BankingSystem:
@@ -234,23 +345,27 @@ class BankingSystem:
             print("2️⃣ Withdraw from Checking")
             print("3️⃣ Deposit into Savings")
             print("4️⃣ Deposit into Checking")
-            print("5️⃣ Transfer from Savings to Checking (Coming Soon)")
-            print("6️⃣ Transfer from Checking to Savings (Coming Soon)")
-            print("7️⃣ Transfer to Another Customer (Coming Soon)")
+            print("5️⃣ Transfer from Savings to Checking")
+            print("6️⃣ Transfer from Checking to Savings")
+            print("7️⃣ Transfer to Another Customer")
             print("8️⃣ Logout")
 
             choice = input("\n🔹 Enter your choice: ")
 
             if choice == "1":
-                AccountService.withdraw_from_account(customer, "savings")
+                TransactionService.withdraw_from_account(customer, "savings")
             elif choice == "2":
-                AccountService.withdraw_from_account(customer, "checking")
+                TransactionService.withdraw_from_account(customer, "checking")
             elif choice == "3":
-                AccountService.deposit_to_account(customer, "savings")
+                TransactionService.deposit_to_account(customer, "savings")
             elif choice == "4":
-                AccountService.deposit_to_account(customer, "checking")
-            elif choice in ("5", "6", "7"):
-                print("🔄 Feature coming soon!")
+                TransactionService.deposit_to_account(customer, "checking")
+            elif choice == "5":
+                TransferService.transfer_from_savings_to_checking(customer)
+            elif choice == "6":
+                TransferService.transfer_from_checking_to_savings(customer)
+            elif choice == "7":
+                TransferService.transfer_to_another_customer(customer)
             elif choice == "8":
                 print("\n👋 Logging out. Returning to the main menu.")
                 break
