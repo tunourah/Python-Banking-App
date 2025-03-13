@@ -1,6 +1,11 @@
 # Python Banking App 💸
 
-Welcome to the **Python Banking App**! 🎉 This is a simple yet powerful app that lets you manage your banking needs, like creating customer accounts, depositing and withdrawing money, making transfers, and even protecting against overdrafts. It's all built with Python and CSV — no fancy databases, just good ol' file storage. 
+
+
+Welcome to the **Python Banking App**! 🎉 This project was developed as part of the requirements for completing the **Web Development Bootcamp using Python** from **General Assembly**. It’s a simple yet powerful app that lets you manage your banking needs, like creating customer accounts, depositing and withdrawing money, making transfers, and even protecting against overdrafts. It's all built with Python and CSV — no fancy databases, just good ol' file storage. 
+
+...
+
 
 ![Money GIF](https://media.giphy.com/media/aoZNck1kze91pNwLex/giphy.gif?cid=ecf05e475ohll61cf2zo98aikeeie6bfec6svz72zc7p0f0a&ep=v1_gifs_search&rid=giphy.gif&ct=g)
 ## Features 🌟
