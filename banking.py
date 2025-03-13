@@ -1,4 +1,6 @@
 import csv
+import datetime
+import os
 
 class Customer:
     def __init__(self, account_id, first_name, last_name, password, checking=0, savings=0, overdraft_count=0, status="active"):
@@ -9,7 +11,7 @@ class Customer:
         self.checking = float(checking)
         self.savings = float(savings)
         self.overdraft_count = int(overdraft_count)
-        self.status = status  # "active" or "deactivated"
+        self.status = status  
 
     @staticmethod
     def generate_account_id():
@@ -54,7 +56,6 @@ class Customer:
 
         print(f"\n✅ Account created successfully! Your account ID is {customer.account_id}")
         print("🔐 Please log in to access banking services.\n")
-
     @staticmethod
     def login():
         while True:
@@ -64,10 +65,10 @@ class Customer:
                 with open("bank.csv", "r") as file:
                     reader = csv.DictReader(file, delimiter=";")
                     for row in reader:
-                        if row["account_id"] == account_id and row["password"] == password:
+                        if row["account_id"] == str(account_id) and row["password"] == password:
                             print(f"\n✅ Welcome back, {row['first_name']} {row['last_name']}!\n")
                             return Customer(
-                                row["account_id"],
+                                str(row["account_id"]),  # Ensure account_id is a string
                                 row["first_name"],
                                 row["last_name"],
                                 row["password"],
@@ -85,9 +86,8 @@ class Customer:
                 print("👋 Exiting login.")
                 return None
 
-
 class TransactionService:
-    """Handles withdrawals, deposits, and CSV updates."""
+    
     
     @staticmethod
     def update_customer_balance(customer, filename="bank.csv"):
@@ -203,7 +203,7 @@ class TransactionService:
 
 
 class TransferService:
-    """Handles transfers between accounts and to another customer."""
+    
     
     @staticmethod
     def transfer_from_savings_to_checking(customer):
@@ -299,7 +299,7 @@ class TransferService:
         else:
             customer.savings = new_source_balance
 
-        # Update target customer's checking balance in CSV.
+       
         target_found = False
         updated_rows = []
         filename = "bank.csv"
@@ -332,6 +332,35 @@ class TransferService:
 
         TransactionService.update_customer_balance(customer)
 
+class TransactionHistory:
+    FILE_NAME = "transaction_history.csv"
+
+    @staticmethod
+    def log_transaction(account_id, transaction_type, amount, resulting_balance):
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with open(TransactionHistory.FILE_NAME, mode='a', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow([str(account_id), timestamp, transaction_type, amount, resulting_balance])
+    @staticmethod
+    def view_transactions(account_id):
+        print("\n📜 Transaction History:")
+        print("=" * 50)
+        try:
+            with open(TransactionHistory.FILE_NAME, mode='r') as file:
+                reader = csv.reader(file)
+                transactions = [row for row in reader if row[0] == str(account_id)]
+                
+                if not transactions:
+                    print("No transaction history found.")
+                    return
+                
+                print(f"{'Date & Time':<20} {'Type':<15} {'Amount':<10} {'Balance':<10}")
+                print("-" * 50)
+                for row in transactions:
+                    print(f"{row[1]:<20} {row[2]:<15} {row[3]:<10} {row[4]:<10}")
+        except FileNotFoundError:
+            print("No transaction history available yet.")
+
 
 class BankingSystem:
     @staticmethod
@@ -348,7 +377,8 @@ class BankingSystem:
             print("5️⃣ Transfer from Savings to Checking")
             print("6️⃣ Transfer from Checking to Savings")
             print("7️⃣ Transfer to Another Customer")
-            print("8️⃣ Logout")
+            print("8️⃣ View Transaction History (Cooming Soon)")
+            print("9️⃣ Logout")
 
             choice = input("\n🔹 Enter your choice: ")
 
@@ -367,6 +397,8 @@ class BankingSystem:
             elif choice == "7":
                 TransferService.transfer_to_another_customer(customer)
             elif choice == "8":
+                TransactionHistory.view_transactions(customer.account_id)
+            elif choice == "9":
                 print("\n👋 Logging out. Returning to the main menu.")
                 break
             else:
