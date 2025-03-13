@@ -332,15 +332,26 @@ class TransferService:
 
         TransactionService.update_customer_balance(customer)
 
+
 class TransactionHistory:
     FILE_NAME = "transaction_history.csv"
 
     @staticmethod
     def log_transaction(account_id, transaction_type, amount, resulting_balance):
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+      
+        file_exists = os.path.isfile(TransactionHistory.FILE_NAME)
+
         with open(TransactionHistory.FILE_NAME, mode='a', newline='') as file:
             writer = csv.writer(file)
+
+           
+            if not file_exists:
+                writer.writerow(["account_id", "timestamp", "transaction_type", "amount", "resulting_balance"])
+ 
             writer.writerow([str(account_id), timestamp, transaction_type, amount, resulting_balance])
+
     @staticmethod
     def view_transactions(account_id):
         print("\n📜 Transaction History:")
@@ -348,8 +359,10 @@ class TransactionHistory:
         try:
             with open(TransactionHistory.FILE_NAME, mode='r') as file:
                 reader = csv.reader(file)
-                transactions = [row for row in reader if row[0] == str(account_id)]
+                next(reader, None)  # Skip header row
                 
+                transactions = [row for row in reader if row[0].strip() == str(account_id).strip()]
+
                 if not transactions:
                     print("No transaction history found.")
                     return
@@ -360,7 +373,6 @@ class TransactionHistory:
                     print(f"{row[1]:<20} {row[2]:<15} {row[3]:<10} {row[4]:<10}")
         except FileNotFoundError:
             print("No transaction history available yet.")
-
 
 class BankingSystem:
     @staticmethod
